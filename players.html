@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Players - Sport Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2563eb; --bg-color: #f3f4f6; --card-bg: #ffffff; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-color); display: flex; }
+        
+       
+        .sidebar { width: 250px; background-color: #111827; color: white; height: 100vh; padding: 20px 0; position: fixed; }
+        .sidebar h2 { text-align: center; margin-bottom: 30px; color: #60a5fa; }
+        .sidebar ul { list-style: none; }
+        .sidebar ul li a { display: block; padding: 15px 20px; color: #d1d5db; text-decoration: none; transition: 0.3s; }
+        .sidebar ul li a:hover, .sidebar ul li a.active { background-color: #374151; border-left: 4px solid var(--primary); color: white; }
+        
+        .main-content { margin-left: 250px; padding: 30px; width: 100%; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
+        .panel { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        input { padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; flex: 1; }
+        button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background-color: #f9fafb; color: #374151; }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <h2>Tournament DB</h2>
+        <ul>
+            <li><a href="index.html">🏠 Main Page</a></li>
+            <li><a href="tournaments.html">🏆 Tournaments</a></li>
+            <li><a href="teams.html">🛡️ Teams</a></li>
+            <li><a href="players.html" class="active">👤 Players</a></li>
+            <li><a href="matches.html">⚽ Matches</a></li>
+            <li><a href="stats.html">📊 Statistics</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="header">
+            <h1>Player Management</h1>
+            <button onclick="logout()" style="padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout</button>
+        </div>
+
+        <div class="panel" id="addPlayerPanel">
+            <h3>Add New Players</h3>
+            <br>
+            <div class="form-group">
+                <input type="text" id="p_first" placeholder="Name (first_name)">
+                <input type="text" id="p_last" placeholder="Surname (last_name)">
+                <input type="text" id="p_pos" placeholder="Position">
+                <input type="text" id="p_nat" placeholder="Nationality">
+                <button onclick="addPlayer()">Save</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Players List</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name and Surname</th>
+                        <th>Position</th>
+                        <th>Nationality</th>
+                        <th>Process</th>
+                    </tr>
+                </thead>
+                <tbody id="playerTable">
+                    <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+<script>
+    const SUPABASE_URL = 'https://jjbmucvgnwxqvegqktqo.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqYm11Y3Znbnd4cXZlZ3FrdHFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MDg3NzEsImV4cCI6MjA5NDA4NDc3MX0.f2RzHJ1WdoMGgASWK3Xs2KO6gg_DR_ZZN3F0cMlujVE';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const role = localStorage.getItem('userRole');
+        
+        
+        if (!role) {
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        
+        if (role === 'manager') {
+            const addPanel = document.getElementById('addPlayerPanel');
+            if (addPanel) addPanel.style.display = 'none';
+            
+           
+            const adminOnly = ['Users'];
+            document.querySelectorAll('.sidebar ul li a').forEach(link => {
+                if (adminOnly.some(text => link.innerText.includes(text))) {
+                    link.parentElement.style.display = 'none';
+                }
+            });
+        }
+        fetchPlayers();
+    });
+
+    async function fetchPlayers() {
+        const role = localStorage.getItem('userRole');
+        const { data, error } = await supabaseClient.from('players').select('*'); 
+        
+        const tbody = document.getElementById('playerTable');
+        if (error) return tbody.innerHTML = `<tr><td colspan="5">Error: ${error.message}</td></tr>`;
+
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td>#${p.player_id}</td> <td>${p.first_name} ${p.last_name}</td> <td>${p.position}</td> <td>${p.nationality}</td> <td>${role === 'admin' ? `<button onclick="deletePlayer(${p.player_id})" style="background:#ef4444; color:white; border:none; padding:5px; border-radius:4px;">Delete</button>` : '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function addPlayer() {
+        const { error } = await supabaseClient.from('players').insert([{
+            first_name: document.getElementById('p_first').value,
+            last_name: document.getElementById('p_last').value,
+            position: document.getElementById('p_pos').value,
+            nationality: document.getElementById('p_nat').value
+        }]);
+        if (error) alert(error.message); else { location.reload(); }
+    }
+
+    async function deletePlayer(id) {
+        if(confirm("Are you sure?")) {
+            await supabaseClient.from('players').delete().eq('player_id', id);
+            fetchPlayers();
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = 'login.html';
+    }
+</script>
+</body>
+</html>
